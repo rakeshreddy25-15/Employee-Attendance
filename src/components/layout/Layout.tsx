@@ -4,9 +4,10 @@ import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 
 export const Layout = () => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
-  if (!isAuthenticated) {
+  // Prevent rendering the app layout until auth and user info are available
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 

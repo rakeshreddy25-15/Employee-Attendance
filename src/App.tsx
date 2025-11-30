@@ -29,22 +29,30 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Protected Route Component
+
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { isAuthenticated, user } = useAuthStore();
 
+  // If not authenticated, send to login
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  // If authenticated but user data hasn't loaded, prevent rendering protected UI
+  // and force a re-auth flow to avoid role/permission glitches.
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // If route has allowedRoles and the user's role is not included, redirect to their proper dashboard
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to={user.role === 'manager' ? '/manager/dashboard' : '/dashboard'} replace />;
   }
 
   return <>{children}</>;
 };
 
-// Public Route Component (redirect if authenticated)
+
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, user } = useAuthStore();
 
