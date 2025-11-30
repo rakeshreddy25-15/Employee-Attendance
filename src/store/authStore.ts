@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch, setAuthToken } from '@/lib/api';
 
 export type UserRole = 'employee' | 'manager';
 
@@ -47,49 +48,45 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: initialState.isAuthenticated,
   
   login: async (email: string, password: string, role: UserRole) => {
-    // Mock API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const mockUser: User = {
-      id: role === 'manager' ? 'mgr-001' : 'emp-001',
-      name: role === 'manager' ? 'Alex Manager' : 'John Employee',
-      email,
-      role,
-      department: 'Engineering',
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-    };
-    
-    const newState = {
-      user: mockUser,
-      token: 'mock-jwt-token-' + Date.now(),
-      isAuthenticated: true,
-    };
-    
-    saveToStorage(newState);
-    set(newState);
+    try {
+      const res = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username: email, password }),
+      });
+
+      const newState = {
+        user: res.user,
+        token: res.token,
+        isAuthenticated: true,
+      };
+
+      setAuthToken(res.token);
+      saveToStorage(newState);
+      set(newState);
+    } catch (err) {
+      throw new Error('Login failed');
+    }
   },
   
   register: async (name: string, email: string, password: string, role: UserRole) => {
-    // Mock API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const mockUser: User = {
-      id: 'emp-' + Date.now(),
-      name,
-      email,
-      role,
-      department: 'Engineering',
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-    };
-    
-    const newState = {
-      user: mockUser,
-      token: 'mock-jwt-token-' + Date.now(),
-      isAuthenticated: true,
-    };
-    
-    saveToStorage(newState);
-    set(newState);
+    try {
+      const res = await apiFetch('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ username: email, email, password, role }),
+      });
+
+      const newState = {
+        user: res.user,
+        token: res.token,
+        isAuthenticated: true,
+      };
+
+      setAuthToken(res.token);
+      saveToStorage(newState);
+      set(newState);
+    } catch (err) {
+      throw new Error('Registration failed');
+    }
   },
   
   logout: () => {

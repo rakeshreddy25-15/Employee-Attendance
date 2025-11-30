@@ -34,13 +34,24 @@ export const StatusBadge = ({ status, showIcon = true }: StatusBadgeProps) => {
       label: 'Half Day',
     },
   };
+  // Defensive: handle unknown/undefined statuses
+  const config = (status && (variants as any)[status]) || null;
+  if (!config) {
+    // fallback display for unknown status
+    const FallbackIcon = AlertCircle;
+    return (
+      <Badge className="bg-muted text-muted-foreground">
+        {showIcon && <FallbackIcon className="mr-1 h-3 w-3" />}
+        Unknown
+      </Badge>
+    );
+  }
 
-  const config = variants[status];
   const Icon = config.icon;
 
   return (
     <Badge className={config.className}>
-      {showIcon && <Icon className="mr-1 h-3 w-3" />}
+      {showIcon && Icon && <Icon className="mr-1 h-3 w-3" />}
       {config.label}
     </Badge>
   );

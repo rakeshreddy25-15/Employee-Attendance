@@ -35,8 +35,9 @@ export default function Employees() {
   }, []);
 
   const filteredData = allEmployeesAttendance.filter((record) => {
-    const matchesSearch = record.employeeName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || record.status === filterStatus;
+    const name = record.employeeName || '';
+    const matchesSearch = name.toLowerCase().includes((searchQuery || '').toLowerCase());
+    const matchesStatus = filterStatus === 'all' || (record.status || '') === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
@@ -158,9 +159,9 @@ export default function Employees() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${record.employeeName}`} />
+                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(record.employeeName || 'user')}`} />
                             <AvatarFallback>
-                              {record.employeeName.split(' ').map(n => n[0]).join('')}
+                              {((record.employeeName || '').split(' ').map(n => n[0] || '').join('') || 'U')}
                             </AvatarFallback>
                           </Avatar>
                           <div>

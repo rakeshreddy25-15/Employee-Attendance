@@ -134,42 +134,8 @@ export default function TeamCalendar() {
     fetchAllEmployeesAttendance();
   }, []);
 
-  // Generate mock historical data for calendar
-  const generateHistoricalData = () => {
-    const data = [];
-    const today = new Date();
-    
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      
-      const employees = [
-        'John Employee', 'Sarah Smith', 'Mike Johnson', 'Emily Davis',
-        'David Wilson', 'Lisa Anderson', 'Tom Brown', 'Anna Garcia'
-      ];
-      
-      employees.forEach((name, idx) => {
-        const statuses: AttendanceStatus[] = ['present', 'present', 'present', 'late', 'absent'];
-        const status = statuses[Math.floor(Math.random() * statuses.length)];
-        
-        data.push({
-          id: `${dateStr}-${idx}`,
-          employeeId: `emp-${idx}`,
-          employeeName: name,
-          date: dateStr,
-          checkIn: status !== 'absent' ? '09:00' : null,
-          checkOut: status !== 'absent' ? '18:00' : null,
-          status,
-          totalHours: status !== 'absent' ? 9 : 0,
-        });
-      });
-    }
-    
-    return data;
-  };
-
-  const historicalData = generateHistoricalData();
+  // Use real attendance records fetched from the backend as historical data
+  const historicalData = allEmployeesAttendance;
 
   return (
     <div className="space-y-6">

@@ -15,17 +15,31 @@ export default function AttendanceMark() {
   }, []);
 
   const handleCheckIn = async () => {
-    await checkIn();
-    toast.success('Checked in successfully!', {
-      description: `Checked in at ${new Date().toLocaleTimeString()}`,
-    });
+    try {
+      await checkIn();
+      await fetchTodayStatus();
+      toast.success('Checked in successfully!', {
+        description: `Checked in at ${new Date().toLocaleTimeString()}`,
+      });
+    } catch (error) {
+      toast.error('Check-in failed', {
+        description: 'Unable to check in. Please try again.',
+      });
+    }
   };
 
   const handleCheckOut = async () => {
-    await checkOut();
-    toast.success('Checked out successfully!', {
-      description: `Checked out at ${new Date().toLocaleTimeString()}`,
-    });
+    try {
+      await checkOut();
+      await fetchTodayStatus();
+      toast.success('Checked out successfully!', {
+        description: `Checked out at ${new Date().toLocaleTimeString()}`,
+      });
+    } catch (error) {
+      toast.error('Check-out failed', {
+        description: 'Unable to check out. Please try again.',
+      });
+    }
   };
 
   const currentTime = new Date().toLocaleTimeString('en-US', {

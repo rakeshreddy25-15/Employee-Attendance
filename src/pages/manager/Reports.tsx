@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,49 +21,30 @@ import {
 import { StatusBadge } from '@/components/StatusBadge';
 import { Label } from '@/components/ui/label';
 
-const generateReportData = () => {
-  const employees = [
-    'John Employee', 'Sarah Smith', 'Mike Johnson', 'Emily Davis',
-    'David Wilson', 'Lisa Anderson', 'Tom Brown', 'Anna Garcia'
-  ];
-  
-  return employees.map((name, idx) => ({
-    id: `emp-${idx}`,
-    name,
-    totalDays: 22,
-    present: 18 + Math.floor(Math.random() * 3),
-    absent: Math.floor(Math.random() * 3),
-    late: Math.floor(Math.random() * 4),
-    halfDay: Math.floor(Math.random() * 2),
-    totalHours: 150 + Math.floor(Math.random() * 30),
-    avgCheckIn: '09:05',
-    avgCheckOut: '18:10',
-  }));
-};
+import { useAttendanceStore } from '@/store/attendanceStore';
 
 export default function Reports() {
   const [reportType, setReportType] = useState('monthly');
   const [selectedEmployee, setSelectedEmployee] = useState('all');
   const [dateRange, setDateRange] = useState('current-month');
   
-  const reportData = generateReportData();
+  const { allEmployeesAttendance, loading, fetchAllEmployeesAttendance } = useAttendanceStore();
+
+  useEffect(() => {
+    // attempt to load real attendance data (will be empty if backend not available)
+    fetchAllEmployeesAttendance();
+  }, [fetchAllEmployeesAttendance, dateRange]);
+
+  const reportData = allEmployeesAttendance || [];
 
   const handleExportReport = () => {
-    const csvContent = [
-      ['Employee', 'Total Days', 'Present', 'Absent', 'Late', 'Half Day', 'Total Hours'],
-      ...reportData.map((r) => [
-        r.name,
-        r.totalDays,
-        r.present,
-        r.absent,
-        r.late,
-        r.halfDay,
-        r.totalHours,
-      ]),
-    ]
-      .map((row) => row.join(','))
-      .join('\n');
+    // Export whatever data is currently available (may be empty if no backend data)
+    const header = ['Employee', 'Date', 'Check In', 'Check Out', 'Hours', 'Status'];
+    const rows = reportData.length
+      ? reportData.map((r: any) => [r.employeeName || r.name || '', r.date || '', r.checkIn || '', r.checkOut || '', r.totalHours ?? '', r.status || ''])
+      : [];
 
+    const csvContent = [header, ...rows].map((row) => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -220,45 +201,62 @@ export default function Reports() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reportData.map((employee) => {
-                  const attendanceRate = ((employee.present + employee.late) / employee.totalDays * 100).toFixed(1);
-                  return (
-                    <TableRow key={employee.id}>
-                      <TableCell className="font-medium">{employee.name}</TableCell>
-                      <TableCell>{employee.totalDays}</TableCell>
-                      <TableCell>
-                        <span className="text-success font-medium">{employee.present}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-destructive font-medium">{employee.absent}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-warning font-medium">{employee.late}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-info font-medium">{employee.halfDay}</span>
-                      </TableCell>
-                      <TableCell>{employee.totalHours}h</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-muted rounded-full h-2">
-                            <div
-                              className={`h-full rounded-full ${
-                                parseFloat(attendanceRate) >= 90
-                                  ? 'bg-success'
-                                  : parseFloat(attendanceRate) >= 75
-                                  ? 'bg-warning'
-                                  : 'bg-destructive'
-                              }`}
-                              style={{ width: `${attendanceRate}%` }}
-                            />
+                {reportData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      No attendance data available.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  reportData.map((employee: any) => {
+                    // Try to show per-employee aggregated values if present; otherwise show per-day fields
+                    const name = employee.employeeName || employee.name || '—';
+                    const totalDays = employee.totalDays ?? '-';
+                    const present = employee.present ?? (employee.status === 'present' ? 1 : 0);
+                    const absent = employee.absent ?? (employee.status === 'absent' ? 1 : 0);
+                    const late = employee.late ?? (employee.status === 'late' ? 1 : 0);
+                    const halfDay = employee.halfDay ?? 0;
+                    const totalHours = employee.totalHours ?? '-';
+                    const attendanceRate = totalDays && totalDays !== '-' ? (((present + late) / totalDays) * 100).toFixed(1) : '0.0';
+
+                    return (
+                      <TableRow key={employee.id || `${name}-${employee.date || ''}`}>
+                        <TableCell className="font-medium">{name}</TableCell>
+                        <TableCell>{totalDays}</TableCell>
+                        <TableCell>
+                          <span className="text-success font-medium">{present}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-destructive font-medium">{absent}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-warning font-medium">{late}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-info font-medium">{halfDay}</span>
+                        </TableCell>
+                        <TableCell>{totalHours}h</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-muted rounded-full h-2">
+                              <div
+                                className={`h-full rounded-full ${
+                                  parseFloat(attendanceRate) >= 90
+                                    ? 'bg-success'
+                                    : parseFloat(attendanceRate) >= 75
+                                    ? 'bg-warning'
+                                    : 'bg-destructive'
+                                }`}
+                                style={{ width: `${attendanceRate}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium w-12">{attendanceRate}%</span>
                           </div>
-                          <span className="text-sm font-medium w-12">{attendanceRate}%</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </CardContent>

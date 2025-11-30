@@ -126,7 +126,7 @@ export default function Login() {
           transition={{ delay: 0.5 }}
           className="text-center text-sm text-muted-foreground mt-6"
         >
-          Use any email/password to login (demo mode)
+          Make sure you have an account. Register if you don't have one yet.
         </motion.p>
       </motion.div>
     </div>

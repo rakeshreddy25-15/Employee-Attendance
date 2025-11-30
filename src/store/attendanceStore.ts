@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch, getAuthHeaders } from '@/lib/api';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'half-day';
 
@@ -37,44 +38,7 @@ interface AttendanceState {
   fetchAllEmployeesAttendance: (date?: string) => Promise<void>;
 }
 
-// Mock data generator
-const generateMockAttendance = (employeeId: string, employeeName: string, daysAgo: number): AttendanceRecord => {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  const dateStr = date.toISOString().split('T')[0];
-  
-  const statuses: AttendanceStatus[] = ['present', 'present', 'present', 'late', 'absent', 'half-day'];
-  const status = statuses[Math.floor(Math.random() * statuses.length)];
-  
-  let checkIn = null;
-  let checkOut = null;
-  let totalHours = 0;
-  
-  if (status === 'present') {
-    checkIn = '09:00';
-    checkOut = '18:00';
-    totalHours = 9;
-  } else if (status === 'late') {
-    checkIn = '09:30';
-    checkOut = '18:00';
-    totalHours = 8.5;
-  } else if (status === 'half-day') {
-    checkIn = '09:00';
-    checkOut = '13:00';
-    totalHours = 4;
-  }
-  
-  return {
-    id: `att-${employeeId}-${dateStr}`,
-    employeeId,
-    employeeName,
-    date: dateStr,
-    checkIn,
-    checkOut,
-    status,
-    totalHours,
-  };
-};
+// Note: removed pre-built/mock attendance data. Store now uses real API calls.
 
 export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   todayStatus: null,
@@ -85,118 +49,68 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   
   fetchTodayStatus: async () => {
     set({ loading: true });
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const today = new Date().toISOString().split('T')[0];
-    const mockRecord: AttendanceRecord = {
-      id: 'today-001',
-      employeeId: 'emp-001',
-      employeeName: 'John Employee',
-      date: today,
-      checkIn: '09:00',
-      checkOut: null,
-      status: 'present',
-      totalHours: 0,
-    };
-    
-    set({ todayStatus: mockRecord, loading: false });
+    try {
+      const data = await apiFetch('/attendance/today', { headers: getAuthHeaders() });
+      set({ todayStatus: data || null, loading: false });
+    } catch (err) {
+      // On error, clear state but keep app running
+      set({ todayStatus: null, loading: false });
+    }
   },
   
   fetchSummary: async (month: number, year: number) => {
     set({ loading: true });
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const mockSummary: AttendanceSummary = {
-      totalPresent: 18,
-      totalAbsent: 2,
-      totalLate: 3,
-      totalHalfDay: 1,
-      totalHoursWorked: 162,
-    };
-    
-    set({ summary: mockSummary, loading: false });
+    try {
+      const monthStr = String(month).padStart(2, '0');
+      // expected format: YYYY-MM
+      const data = await apiFetch(`/attendance/my-summary?month=${year}-${monthStr}`, { headers: getAuthHeaders() });
+      set({ summary: data || null, loading: false });
+    } catch (err) {
+      set({ summary: null, loading: false });
+    }
   },
   
   fetchHistory: async (startDate: string, endDate: string) => {
     set({ loading: true });
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const mockHistory: AttendanceRecord[] = Array.from({ length: 30 }, (_, i) => 
-      generateMockAttendance('emp-001', 'John Employee', i)
-    );
-    
-    set({ history: mockHistory, loading: false });
+    try {
+      const qs = `?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`;
+      const data = await apiFetch(`/attendance/my-history${qs}`, { headers: getAuthHeaders() });
+      set({ history: Array.isArray(data) ? data : [], loading: false });
+    } catch (err) {
+      set({ history: [], loading: false });
+    }
   },
   
   checkIn: async () => {
     set({ loading: true });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const now = new Date();
-    const time = now.toTimeString().slice(0, 5);
-    const today = now.toISOString().split('T')[0];
-    
-    const status: AttendanceStatus = time > '09:15' ? 'late' : 'present';
-    
-    const newRecord: AttendanceRecord = {
-      id: 'today-' + Date.now(),
-      employeeId: 'emp-001',
-      employeeName: 'John Employee',
-      date: today,
-      checkIn: time,
-      checkOut: null,
-      status,
-      totalHours: 0,
-    };
-    
-    set({ todayStatus: newRecord, loading: false });
+    try {
+      const data = await apiFetch('/attendance/checkin', { method: 'POST', headers: getAuthHeaders() });
+      set({ todayStatus: data || null, loading: false });
+    } catch (err) {
+      set({ loading: false });
+      throw err;
+    }
   },
   
   checkOut: async () => {
     set({ loading: true });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const current = get().todayStatus;
-    if (current) {
-      const now = new Date();
-      const checkOutTime = now.toTimeString().slice(0, 5);
-      
-      // Calculate hours
-      const checkInParts = current.checkIn!.split(':');
-      const checkOutParts = checkOutTime.split(':');
-      const checkInMinutes = parseInt(checkInParts[0]) * 60 + parseInt(checkInParts[1]);
-      const checkOutMinutes = parseInt(checkOutParts[0]) * 60 + parseInt(checkOutParts[1]);
-      const totalHours = Math.round((checkOutMinutes - checkInMinutes) / 60 * 10) / 10;
-      
-      const updated: AttendanceRecord = {
-        ...current,
-        checkOut: checkOutTime,
-        totalHours,
-      };
-      
-      set({ todayStatus: updated, loading: false });
+    try {
+      const data = await apiFetch('/attendance/checkout', { method: 'POST', headers: getAuthHeaders() });
+      set({ todayStatus: data || null, loading: false });
+    } catch (err) {
+      set({ loading: false });
+      throw err;
     }
   },
   
   fetchAllEmployeesAttendance: async (date?: string) => {
     set({ loading: true });
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const employees = [
-      { id: 'emp-001', name: 'John Employee' },
-      { id: 'emp-002', name: 'Sarah Smith' },
-      { id: 'emp-003', name: 'Mike Johnson' },
-      { id: 'emp-004', name: 'Emily Davis' },
-      { id: 'emp-005', name: 'David Wilson' },
-      { id: 'emp-006', name: 'Lisa Anderson' },
-      { id: 'emp-007', name: 'Tom Brown' },
-      { id: 'emp-008', name: 'Anna Garcia' },
-    ];
-    
-    const mockData: AttendanceRecord[] = employees.map((emp, i) => 
-      generateMockAttendance(emp.id, emp.name, 0)
-    );
-    
-    set({ allEmployeesAttendance: mockData, loading: false });
+    try {
+      const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+      const data = await apiFetch(`/attendance/all${qs}`, { headers: getAuthHeaders() });
+      set({ allEmployeesAttendance: Array.isArray(data) ? data : [], loading: false });
+    } catch (err) {
+      set({ allEmployeesAttendance: [], loading: false });
+    }
   },
 }));
